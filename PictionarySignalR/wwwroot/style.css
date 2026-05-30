@@ -1,0 +1,491 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --fondo: #eef2f7;
+    --panel: #ffffff;
+    --texto: #172033;
+    --suave: #64748b;
+    --linea: #d8dee9;
+    --principal: #2563eb;
+    --principal-oscuro: #1d4ed8;
+    --verde: #16a34a;
+    --rojo: #dc2626;
+    --ambar: #f59e0b;
+}
+
+body {
+    font-family: "Courier New", monospace;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 45%, #bfdbfe 100%);
+    color: var(--texto);
+}
+
+button,
+input {
+    font-family: inherit;
+}
+
+.contenedor {
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.vista {
+    min-height: calc(100vh - 40px);
+}
+
+.oculto {
+    display: none !important;
+}
+
+.panel {
+    background: var(--panel);
+    border: 2px solid var(--linea);
+    border-radius: 8px;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
+}
+
+.vista-entrada,
+.vista-final {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.entrada-panel,
+.final-panel {
+    width: min(520px, 100%);
+    padding: 34px;
+    text-align: center;
+}
+
+.etiqueta {
+    color: var(--principal);
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+h1 {
+    margin-top: 8px;
+    margin-bottom: 28px;
+    font-size: 34px;
+}
+
+h2 {
+    font-size: 22px;
+}
+
+.grupo-input {
+    margin: 22px 0;
+    text-align: left;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--suave);
+    font-weight: bold;
+}
+
+input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid var(--linea);
+    border-radius: 8px;
+    color: var(--texto);
+    font-size: 16px;
+    outline: none;
+}
+
+input:focus {
+    border-color: var(--principal);
+}
+
+.btn {
+    border: none;
+    border-radius: 8px;
+    padding: 12px 18px;
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.btn-icono {
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 46px;
+}
+
+.btn-icono svg {
+    width: 21px;
+    height: 21px;
+    stroke-width: 2.5;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+}
+
+.principal {
+    background: var(--principal);
+}
+
+.principal:hover {
+    background: var(--principal-oscuro);
+}
+
+.secundario {
+    background: #475569;
+}
+
+.peligro {
+    background: var(--rojo);
+}
+
+.mensaje {
+    min-height: 24px;
+    margin-top: 16px;
+    color: var(--suave);
+    font-weight: bold;
+}
+
+.encabezado {
+    width: min(860px, 100%);
+    margin: 0 auto 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.vista-espera {
+    width: min(860px, 100%);
+    margin: 0 auto;
+    padding-top: 56px;
+}
+
+.vista-espera .panel {
+    padding: 24px;
+}
+
+.contador {
+    width: 88px;
+    height: 68px;
+    display: grid;
+    place-items: center;
+    border: 2px solid var(--linea);
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.contador span {
+    font-size: 26px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.contador small {
+    color: var(--suave);
+    font-weight: bold;
+}
+
+.lista-espera,
+.lista-jugadores,
+.lista-final {
+    list-style: none;
+}
+
+.lista-espera {
+    max-height: 52vh;
+    overflow-y: auto;
+}
+
+.lista-espera li,
+.lista-jugadores li,
+.lista-final li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border-bottom: 1px solid var(--linea);
+}
+
+.lista-espera li:last-child,
+.lista-jugadores li:last-child,
+.lista-final li:last-child {
+    border-bottom: none;
+}
+
+.estado-listo {
+    color: var(--verde);
+    font-weight: bold;
+}
+
+.estado-espera {
+    color: var(--ambar);
+    font-weight: bold;
+}
+
+.acciones-espera {
+    margin-top: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.vista-juego {
+    height: calc(100vh - 40px);
+    display: grid;
+    grid-template-columns: 230px minmax(420px, 1fr) 300px;
+    gap: 16px;
+    align-items: stretch;
+    overflow: hidden;
+}
+
+.panel-jugadores,
+.panel-chat,
+.panel-pizarra {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.panel-jugadores,
+.panel-chat {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+}
+
+.titulo-panel {
+    flex: 0 0 auto;
+    margin-bottom: 16px;
+}
+
+.lista-jugadores {
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.jugador-nombre {
+    overflow-wrap: anywhere;
+    font-weight: bold;
+}
+
+.jugador-puntos {
+    color: var(--principal);
+    font-weight: bold;
+}
+
+.dibujante {
+    background: #eff6ff;
+}
+
+.panel-pizarra {
+    min-height: 0;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.barra-ronda {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+#palabraRonda {
+    overflow-wrap: anywhere;
+}
+
+.panel-palabra {
+    flex: 0 0 auto;
+    padding: 14px;
+    margin-bottom: 12px;
+    border: 2px dashed var(--linea);
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.fila-palabra {
+    display: flex;
+    gap: 10px;
+}
+
+.herramientas {
+    flex: 0 0 auto;
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 14px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--linea);
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.colores {
+    display: grid;
+    grid-template-columns: repeat(5, 26px);
+    gap: 6px;
+}
+
+.color {
+    width: 26px;
+    height: 26px;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.color[style*="#ffffff"] {
+    border-color: var(--linea);
+}
+
+.color.activo {
+    border-color: var(--texto);
+}
+
+#btnReportar {
+    margin-left: 8px;
+}
+
+.control-tamano {
+    min-width: 170px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.control-tamano input {
+    padding: 0;
+}
+
+#pizarra {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    max-height: 100%;
+    border: 3px solid var(--texto);
+    border-radius: 8px;
+    background: #ffffff;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.mensajes-chat {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px solid var(--linea);
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.mensaje-chat {
+    margin-bottom: 10px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.mensaje-chat strong {
+    color: var(--principal);
+}
+
+.mensaje-sistema {
+    color: var(--verde);
+    font-weight: bold;
+}
+
+.form-chat {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+@media (max-width: 1050px) {
+    .vista-juego {
+        height: auto;
+        overflow: visible;
+        grid-template-columns: 1fr;
+    }
+
+    .panel-jugadores,
+    .panel-chat,
+    .panel-pizarra {
+        min-height: auto;
+        max-height: 70vh;
+    }
+
+    .panel-pizarra {
+        height: 70vh;
+    }
+
+    .mensajes-chat {
+        flex: 0 0 260px;
+    }
+}
+
+@media (max-width: 640px) {
+    .contenedor {
+        padding: 12px;
+    }
+
+    .vista {
+        min-height: calc(100vh - 24px);
+    }
+
+    .entrada-panel,
+    .final-panel {
+        padding: 22px;
+    }
+
+    h1 {
+        font-size: 28px;
+    }
+
+    .encabezado,
+    .acciones-espera,
+    .barra-ronda,
+    .herramientas,
+    .fila-palabra,
+    .form-chat {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .contador {
+        width: 100%;
+    }
+
+    #btnReportar {
+        margin-left: 0;
+    }
+}

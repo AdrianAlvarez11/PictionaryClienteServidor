@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pictionary SignalR</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="contenedor">
+        <section id="vistaEntrada" class="vista vista-entrada">
+            <div class="panel entrada-panel">
+                <p class="etiqueta">Adrián Alvarez</p>
+                <h1>Pictionary</h1>
+
+                <div class="grupo-input">
+                    <label for="txtNombre">Nombre del jugador</label>
+                    <input id="txtNombre" type="text" maxlength="20" autocomplete="off" placeholder="Escribe tu nombre">
+                </div>
+
+                <button id="btnEntrar" class="btn principal">Entrar</button>
+                <p id="mensajeEntrada" class="mensaje"></p>
+            </div>
+        </section>
+
+        <section id="vistaEspera" class="vista vista-espera oculto">
+            <div class="encabezado">
+                <div>
+                    <p class="etiqueta">Sala de espera</p>
+                    <h2>Jugadores conectados</h2>
+                </div>
+                <div class="contador">
+                    <span id="tiempoEspera">100</span>
+                    <small>seg</small>
+                </div>
+            </div>
+
+            <div class="panel">
+                <ul id="listaEspera" class="lista-espera"></ul>
+                <div class="acciones-espera">
+                    <p id="mensajeEspera" class="mensaje">Esperando al menos 2 jugadores...</p>
+                    <button id="btnListo" class="btn principal">Estoy listo</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="vistaJuego" class="vista vista-juego oculto">
+            <aside class="panel panel-jugadores">
+                <div class="titulo-panel">
+                    <p class="etiqueta">Marcador</p>
+                    <h2>Jugadores</h2>
+                </div>
+                <ul id="listaJugadores" class="lista-jugadores"></ul>
+            </aside>
+
+            <section class="panel panel-pizarra">
+                <header class="barra-ronda">
+                    <div>
+                        <p id="textoTurno" class="etiqueta">Turno de dibujo</p>
+                        <h2 id="palabraRonda">_ _ _ _ _</h2>
+                    </div>
+                    <div class="contador">
+                        <span id="tiempoRonda">100</span>
+                        <small>seg</small>
+                    </div>
+                </header>
+
+                <div id="panelPalabra" class="panel-palabra oculto">
+                    <label for="txtPalabra">Palabra o frase para dibujar</label>
+                    <div class="fila-palabra">
+                        <input id="txtPalabra" type="text" maxlength="40" autocomplete="off" placeholder="Escribe aquí">
+                        <button id="btnEnviarPalabra" class="btn principal">Enviar</button>
+                    </div>
+                </div>
+
+                <div id="herramientas" class="herramientas">
+                    <div class="colores" aria-label="Colores">
+                        <button class="color activo" data-color="#111827" style="background:#111827" title="Negro"></button>
+                        <button class="color" data-color="#ef4444" style="background:#ef4444" title="Rojo"></button>
+                        <button class="color" data-color="#f97316" style="background:#f97316" title="Naranja"></button>
+                        <button class="color" data-color="#facc15" style="background:#facc15" title="Amarillo"></button>
+                        <button class="color" data-color="#22c55e" style="background:#22c55e" title="Verde"></button>
+                        <button class="color" data-color="#3b82f6" style="background:#3b82f6" title="Azul"></button>
+                        <button class="color" data-color="#8b5cf6" style="background:#8b5cf6" title="Violeta"></button>
+                        <button class="color" data-color="#ec4899" style="background:#ec4899" title="Rosa"></button>
+                        <button class="color" data-color="#92400e" style="background:#92400e" title="Marron"></button>
+                        <button class="color" data-color="#6b7280" style="background:#6b7280" title="Gris"></button>
+                    </div>
+
+                    <label class="control-tamano" for="rangoTamano">
+                        Lapiz
+                        <input id="rangoTamano" type="range" min="2" max="18" value="5">
+                    </label>
+
+                    <button id="btnLimpiar" class="btn secundario">Limpiar</button>
+                    <button id="btnReportar" class="btn peligro btn-icono" title="Reportar dibujante" aria-label="Reportar dibujante">
+                        <i data-lucide="flag"></i>
+                    </button>
+                </div>
+
+                <canvas id="pizarra" width="900" height="560"></canvas>
+            </section>
+
+            <aside class="panel panel-chat">
+                <div class="titulo-panel">
+                    <p class="etiqueta">Chat</p>
+                    <h2>Adivina</h2>
+                </div>
+
+                <div id="mensajesChat" class="mensajes-chat"></div>
+
+                <form id="formChat" class="form-chat">
+                    <input id="txtMensaje" type="text" maxlength="80" autocomplete="off" placeholder="Escribe tu intento">
+                    <button class="btn principal btn-icono" type="submit" title="Enviar mensaje" aria-label="Enviar mensaje">
+                        <i data-lucide="send"></i>
+                    </button>
+                </form>
+            </aside>
+        </section>
+
+        <section id="vistaFinal" class="vista vista-final oculto">
+            <div class="panel final-panel">
+                <p class="etiqueta">Partida terminada</p>
+                <h1 id="textoGanador">Ganador</h1>
+                <ul id="listaFinal" class="lista-final"></ul>
+                <p class="mensaje">Volviendo a la sala en <span id="tiempoFinal">15</span> segundos...</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="juego.js"></script>
+</body>
+</html>
