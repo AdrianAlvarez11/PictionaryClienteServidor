@@ -9,7 +9,7 @@ namespace PictionarySignalR.Services
         private readonly string GrupoSala = "sala";
         private readonly int DuracionEspera = 100;
         private readonly int DuracionRonda = 100;
-        private readonly int DuracionFinal = 15;
+        private readonly int DuracionFinal = 10;
 
         private readonly IHubContext<JuegoHub> hubContext;
         private readonly Sala sala = new();
