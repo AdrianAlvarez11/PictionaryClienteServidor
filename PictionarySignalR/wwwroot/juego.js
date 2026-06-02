@@ -10,6 +10,7 @@ let reporteEnviado = false;
 let puedeEnviarMensaje = false;
 let musicaDesbloqueada = false;
 let musicaActiva = false;
+let efectoYayReproducido = false;
 
 const vistas = {
     entrada: document.getElementById("vistaEntrada"),
@@ -45,9 +46,14 @@ const tiempoFinal = document.getElementById("tiempoFinal");
 const pizarra = document.getElementById("pizarra");
 const contexto = pizarra.getContext("2d");
 const musicaFondo = document.getElementById("musicaFondo");
+const efectoYay = document.getElementById("efectoYay");
 
 if (musicaFondo) {
     musicaFondo.volume = 0.15;
+}
+
+if (efectoYay) {
+    efectoYay.volume = 0.8;
 }
 
 if (window.lucide) {
@@ -228,11 +234,22 @@ async function desbloquearMusica() {
         musicaFondo.pause();
         musicaFondo.currentTime = 0;
         musicaFondo.muted = false;
+        await prepararEfectoYay();
         musicaDesbloqueada = true;
     } catch (error) {
         musicaFondo.muted = false;
         console.log("El navegador bloqueo la musica hasta una nueva interaccion.", error);
     }
+}
+
+async function prepararEfectoYay() {
+    if (!efectoYay) return;
+
+    efectoYay.muted = true;
+    await efectoYay.play();
+    efectoYay.pause();
+    efectoYay.currentTime = 0;
+    efectoYay.muted = false;
 }
 
 async function reproducirMusicaFondo() {
@@ -258,6 +275,18 @@ function detenerMusicaFondo() {
     musicaFondo.currentTime = 0;
 }
 
+async function reproducirEfectoYay() {
+    if (!efectoYay) return;
+
+    try {
+        efectoYay.currentTime = 0;
+        efectoYay.muted = false;
+        await efectoYay.play();
+    } catch (error) {
+        console.log("No se pudo reproducir el efecto yay.", error);
+    }
+}
+
 function mostrarEntradaRechazada(mensaje) {
     btnEntrar.disabled = false;
     mensajeEntrada.textContent = mensaje ?? "Hay una partida en curso. Espera a que termine.";
@@ -272,6 +301,7 @@ function mostrarEntradaEnEspera(mensaje) {
 }
 
 function mostrarSalaEspera(estado) {
+    efectoYayReproducido = false;
     cambiarVista("espera");
     btnEntrar.disabled = false;
     txtNombre.disabled = false;
@@ -298,6 +328,7 @@ function pintarListaEspera(jugadores) {
 }
 
 function iniciarPartida(estado) {
+    efectoYayReproducido = false;
     cambiarVista("juego");
     borrarCanvas();
     mensajesChat.innerHTML = "";
@@ -371,6 +402,10 @@ function agregarMensajeChat(mensaje) {
 
 function mostrarFinal(estado) {
     cambiarVista("final");
+    if (!efectoYayReproducido) {
+        efectoYayReproducido = true;
+        reproducirEfectoYay();
+    }
     textoGanador.textContent = `Gano ${estado?.ganador ?? "un jugador"}`;
     tiempoFinal.textContent = estado?.segundosRestantes ?? 10;
     listaFinal.innerHTML = "";
