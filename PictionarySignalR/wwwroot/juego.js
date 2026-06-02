@@ -317,7 +317,7 @@ function agregarMensajeChat(mensaje) {
 function mostrarFinal(estado) {
     cambiarVista("final");
     textoGanador.textContent = `Gano ${estado?.ganador ?? "un jugador"}`;
-    tiempoFinal.textContent = estado?.segundosRestantes ?? 15;
+    tiempoFinal.textContent = estado?.segundosRestantes ?? 10;
     listaFinal.innerHTML = "";
 
     (estado?.jugadores ?? []).forEach(jugador => {
