@@ -8,6 +8,8 @@ let ultimoPunto = null;
 let palabraDibujante = "";
 let reporteEnviado = false;
 let puedeEnviarMensaje = false;
+let musicaDesbloqueada = false;
+let musicaActiva = false;
 
 const vistas = {
     entrada: document.getElementById("vistaEntrada"),
@@ -42,6 +44,11 @@ const listaFinal = document.getElementById("listaFinal");
 const tiempoFinal = document.getElementById("tiempoFinal");
 const pizarra = document.getElementById("pizarra");
 const contexto = pizarra.getContext("2d");
+const musicaFondo = document.getElementById("musicaFondo");
+
+if (musicaFondo) {
+    musicaFondo.volume = 0.15;
+}
 
 if (window.lucide) {
     lucide.createIcons();
@@ -114,6 +121,7 @@ async function entrarSala() {
         return;
     }
 
+    desbloquearMusica();
     btnEntrar.disabled = true;
     mensajeEntrada.textContent = "Conectando...";
 
@@ -127,6 +135,7 @@ async function entrarSala() {
 }
 
 async function marcarListo() {
+    desbloquearMusica();
     btnListo.disabled = true;
 
     try {
@@ -202,6 +211,51 @@ async function reportarDibujante() {
 function cambiarVista(nombreVista) {
     Object.values(vistas).forEach(vista => vista.classList.add("oculto"));
     vistas[nombreVista].classList.remove("oculto");
+
+    if (nombreVista === "espera" || nombreVista === "juego") {
+        reproducirMusicaFondo();
+    } else {
+        detenerMusicaFondo();
+    }
+}
+
+async function desbloquearMusica() {
+    if (!musicaFondo || musicaDesbloqueada) return;
+
+    try {
+        musicaFondo.muted = true;
+        await musicaFondo.play();
+        musicaFondo.pause();
+        musicaFondo.currentTime = 0;
+        musicaFondo.muted = false;
+        musicaDesbloqueada = true;
+    } catch (error) {
+        musicaFondo.muted = false;
+        console.log("El navegador bloqueo la musica hasta una nueva interaccion.", error);
+    }
+}
+
+async function reproducirMusicaFondo() {
+    if (!musicaFondo || musicaActiva) return;
+
+    musicaActiva = true;
+    musicaFondo.muted = false;
+
+    try {
+        await musicaFondo.play();
+        musicaDesbloqueada = true;
+    } catch (error) {
+        musicaActiva = false;
+        console.log("No se pudo reproducir la musica de fondo.", error);
+    }
+}
+
+function detenerMusicaFondo() {
+    if (!musicaFondo) return;
+
+    musicaActiva = false;
+    musicaFondo.pause();
+    musicaFondo.currentTime = 0;
 }
 
 function mostrarEntradaRechazada(mensaje) {
@@ -271,6 +325,7 @@ function actualizarRonda(estado) {
     tiempoRonda.textContent = estado?.segundosRestantes ?? 100;
     panelPalabra.classList.toggle("oculto", !esMiTurno || !palabraPendiente);
     herramientas.classList.toggle("oculto", palabraPendiente);
+    formChat.classList.toggle("oculto", esMiTurno);
     puedeEnviarMensaje = !esMiTurno && !palabraPendiente;
     txtMensaje.disabled = !puedeEnviarMensaje;
     rangoTamano.disabled = !puedeDibujar;
