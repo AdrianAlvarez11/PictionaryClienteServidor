@@ -5,6 +5,7 @@ namespace PictionarySignalR.Models
         public string Nombre { get; set; } = "";
         public int Puntos { get; set; }
         public bool Listo { get; set; }
+        public bool Conectado { get; set; }
     }
 
     public class EstadoSalaDto
@@ -36,6 +37,7 @@ namespace PictionarySignalR.Models
     {
         public bool Aceptado { get; set; }
         public bool EnEspera { get; set; }
+        public EstadoPartida Estado { get; set; } = EstadoPartida.Esperando;
         public string Mensaje { get; set; } = "";
     }
 }

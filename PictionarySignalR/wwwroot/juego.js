@@ -1,5 +1,6 @@
 let conexion = null;
 let nombreJugador = "";
+let idJugador = sessionStorage.getItem("pictionaryIdJugador") ?? "";
 let colorActual = "#111827";
 let tamanoActual = 5;
 let estaDibujando = false;
@@ -47,6 +48,12 @@ const pizarra = document.getElementById("pizarra");
 const contexto = pizarra.getContext("2d");
 const musicaFondo = document.getElementById("musicaFondo");
 const efectoYay = document.getElementById("efectoYay");
+const nombreGuardado = localStorage.getItem("pictionaryNombreJugador");
+
+if (nombreGuardado) {
+    nombreJugador = nombreGuardado;
+    txtNombre.value = nombreGuardado;
+}
 
 if (musicaFondo) {
     musicaFondo.volume = 0.15;
@@ -95,6 +102,7 @@ async function iniciarConexion() {
         .build();
 
     registrarEventosServidor();
+    conexion.onreconnected(reingresarSala);
 
     try {
         await conexion.start();
@@ -115,6 +123,8 @@ function registrarEventosServidor() {
     conexion.on("TrazoRecibido", dibujarTrazo);
     conexion.on("PizarraLimpiada", borrarCanvas);
     conexion.on("MensajeRecibido", agregarMensajeChat);
+    conexion.on("HistorialChat", cargarHistorialChat);
+    conexion.on("HistorialPizarra", cargarHistorialPizarra);
     conexion.on("PartidaFinalizada", mostrarFinal);
     conexion.on("VolverSalaEspera", mostrarSalaEspera);
 }
@@ -127,17 +137,51 @@ async function entrarSala() {
         return;
     }
 
+    idJugador = asegurarIdJugador();
+    localStorage.setItem("pictionaryNombreJugador", nombreJugador);
     desbloquearMusica();
     btnEntrar.disabled = true;
     mensajeEntrada.textContent = "Conectando...";
 
     try {
-        await conexion.invoke("EntrarSala", nombreJugador);
+        await conexion.invoke("EntrarSala", idJugador, nombreJugador);
     } catch (error) {
         mensajeEntrada.textContent = "Error al entrar en la sala.";
         btnEntrar.disabled = false;
         console.log(error);
     }
+}
+
+async function reingresarSala() {
+    if (!nombreJugador) return;
+
+    try {
+        await conexion.invoke("EntrarSala", asegurarIdJugador(), nombreJugador);
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+function obtenerIdJugador() {
+    const llave = "pictionaryIdJugador";
+    let idGuardado = sessionStorage.getItem(llave);
+
+    if (!idGuardado) {
+        idGuardado = crypto.randomUUID
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        sessionStorage.setItem(llave, idGuardado);
+    }
+
+    return idGuardado;
+}
+
+function asegurarIdJugador() {
+    if (!idJugador) {
+        idJugador = obtenerIdJugador();
+    }
+
+    return idJugador;
 }
 
 async function marcarListo() {
@@ -398,6 +442,18 @@ function agregarMensajeChat(mensaje) {
 
     mensajesChat.appendChild(div);
     mensajesChat.scrollTop = mensajesChat.scrollHeight;
+}
+
+function cargarHistorialChat(mensajes) {
+    mensajesChat.innerHTML = "";
+
+    (mensajes ?? []).forEach(mensaje => agregarMensajeChat(mensaje));
+}
+
+function cargarHistorialPizarra(trazos) {
+    borrarCanvas();
+
+    (trazos ?? []).forEach(trazo => dibujarTrazo(trazo));
 }
 
 function mostrarFinal(estado) {

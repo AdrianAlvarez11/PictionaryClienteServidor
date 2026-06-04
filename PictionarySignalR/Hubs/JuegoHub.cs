@@ -14,9 +14,9 @@ namespace PictionarySignalR.Hubs
             this.juegoService = juegoService;
         }
 
-        public async Task EntrarSala(string nombre)
+        public async Task EntrarSala(string idJugador, string nombre)
         {
-            var resultado = juegoService.EntrarSala(Context.ConnectionId, nombre);
+            var resultado = juegoService.EntrarSala(Context.ConnectionId, idJugador, nombre);
 
             if (resultado.EnEspera)
             {
@@ -31,7 +31,22 @@ namespace PictionarySignalR.Hubs
             }
 
             await Groups.AddToGroupAsync(Context.ConnectionId, GrupoSala);
-            await Clients.Group(GrupoSala).SendAsync("SalaActualizada", juegoService.ObtenerEstadoSala());
+
+            if (resultado.Estado == EstadoPartida.EnPartida)
+            {
+                await Clients.Caller.SendAsync("PartidaIniciada", juegoService.ObtenerEstadoRonda());
+                await Clients.Caller.SendAsync("HistorialChat", juegoService.ObtenerHistorialChat());
+                await Clients.Caller.SendAsync("HistorialPizarra", juegoService.ObtenerHistorialPizarra());
+                await Clients.Group(GrupoSala).SendAsync("RondaActualizada", juegoService.ObtenerEstadoRonda());
+            }
+            else if (resultado.Estado == EstadoPartida.Finalizada)
+            {
+                await Clients.Caller.SendAsync("PartidaFinalizada", juegoService.ObtenerResultadoFinal());
+            }
+            else
+            {
+                await Clients.Group(GrupoSala).SendAsync("SalaActualizada", juegoService.ObtenerEstadoSala());
+            }
         }
 
         public async Task MarcarListo()
@@ -53,6 +68,7 @@ namespace PictionarySignalR.Hubs
         {
             if (juegoService.PuedeDibujar(Context.ConnectionId))
             {
+                juegoService.RegistrarTrazo(trazo);
                 await Clients.OthersInGroup(GrupoSala).SendAsync("TrazoRecibido", trazo);
             }
         }
@@ -61,6 +77,7 @@ namespace PictionarySignalR.Hubs
         {
             if (juegoService.PuedeDibujar(Context.ConnectionId))
             {
+                juegoService.LimpiarTrazosPizarra();
                 await Clients.OthersInGroup(GrupoSala).SendAsync("PizarraLimpiada");
             }
         }

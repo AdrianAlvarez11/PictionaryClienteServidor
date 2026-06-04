@@ -5,6 +5,8 @@ namespace PictionarySignalR.Models
         public List<Jugador> Jugadores { get; set; } = [];
         public List<Jugador> JugadoresEspera { get; set; } = [];
         public List<string> ReportesDibujante { get; set; } = [];
+        public List<MensajeChat> MensajesChat { get; set; } = [];
+        public List<Trazo> TrazosPizarra { get; set; } = [];
         public EstadoPartida Estado { get; set; } = EstadoPartida.Esperando;
         public string? Palabra { get; set; }
         public bool PalabraPendiente { get; set; } = false;

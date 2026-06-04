@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.SignalR;
 using PictionarySignalR.Hubs;
 using PictionarySignalR.Models;
+using System.Globalization;
+using System.Text;
 
 namespace PictionarySignalR.Services
 {
@@ -25,29 +27,59 @@ namespace PictionarySignalR.Services
             this.hubContext = hubContext;
         }
 
-        public ResultadoEntrada EntrarSala(string idJugador, string nombre)
+        public ResultadoEntrada EntrarSala(string connectionId, string idJugador, string nombre)
         {
             lock (sala.Jugadores)
             {
                 nombre = nombre.Trim();
+                idJugador = idJugador.Trim();
+
+                if (string.IsNullOrWhiteSpace(idJugador) || string.IsNullOrWhiteSpace(nombre))
+                {
+                    return new ResultadoEntrada
+                    {
+                        Aceptado = false,
+                        Estado = sala.Estado,
+                        Mensaje = "No se pudo identificar al jugador."
+                    };
+                }
+
+                var jugadorExistente = sala.Jugadores.FirstOrDefault(x => x.IdJugador == idJugador);
+                if (jugadorExistente != null)
+                {
+                    jugadorExistente.ConnectionId = connectionId;
+                    jugadorExistente.Conectado = true;
+
+                    return new ResultadoEntrada
+                    {
+                        Aceptado = true,
+                        Estado = sala.Estado
+                    };
+                }
 
                 if (sala.Estado != EstadoPartida.Esperando)
                 {
                     if (sala.JugadoresEspera.Any(x => x.IdJugador == idJugador))
                     {
+                        var jugadorEnEspera = sala.JugadoresEspera.First(x => x.IdJugador == idJugador);
+                        jugadorEnEspera.ConnectionId = connectionId;
+                        jugadorEnEspera.Conectado = true;
+
                         return new ResultadoEntrada
                         {
                             Aceptado = false,
                             EnEspera = true,
+                            Estado = sala.Estado,
                             Mensaje = "Sigues en espera. Entraras automaticamente cuando termine la partida."
                         };
                     }
 
-                    if (NombreEnUso(nombre))
+                    if (NombreEnUso(nombre, idJugador))
                     {
                         return new ResultadoEntrada
                         {
                             Aceptado = false,
+                            Estado = sala.Estado,
                             Mensaje = "Ese nombre ya esta siendo usado."
                         };
                     }
@@ -57,6 +89,7 @@ namespace PictionarySignalR.Services
                         sala.JugadoresEspera.Add(new Jugador
                         {
                             IdJugador = idJugador,
+                            ConnectionId = connectionId,
                             Nombre = nombre
                         });
                     }
@@ -65,20 +98,17 @@ namespace PictionarySignalR.Services
                     {
                         Aceptado = false,
                         EnEspera = true,
+                        Estado = sala.Estado,
                         Mensaje = "Hay una partida en curso. Entraras automaticamente cuando termine."
                     };
                 }
 
-                if (sala.Jugadores.Any(x => x.IdJugador == idJugador))
-                {
-                    return new ResultadoEntrada { Aceptado = true };
-                }
-
-                if (NombreEnUso(nombre))
+                if (NombreEnUso(nombre, idJugador))
                 {
                     return new ResultadoEntrada
                     {
                         Aceptado = false,
+                        Estado = sala.Estado,
                         Mensaje = "Ese nombre ya esta siendo usado."
                     };
                 }
@@ -86,16 +116,21 @@ namespace PictionarySignalR.Services
                 sala.Jugadores.Add(new Jugador
                 {
                     IdJugador = idJugador,
+                    ConnectionId = connectionId,
                     Nombre = nombre
                 });
 
                 IniciarTimerEspera();
 
-                return new ResultadoEntrada { Aceptado = true };
+                return new ResultadoEntrada
+                {
+                    Aceptado = true,
+                    Estado = sala.Estado
+                };
             }
         }
 
-        public async Task SalirSalaAsync(string idJugador)
+        public async Task SalirSalaAsync(string connectionId)
         {
             //manejar todos los casos de cuando sale un jugador. 
             bool debeVolverAEspera = false;
@@ -109,10 +144,10 @@ namespace PictionarySignalR.Services
 
             lock (sala.Jugadores)
             {
-                var jugador = BuscarJugador(idJugador);
+                var jugador = BuscarJugadorPorConexion(connectionId);
                 if (jugador == null)
                 {
-                    var jugadorEnEspera = sala.JugadoresEspera.FirstOrDefault(x => x.IdJugador == idJugador);
+                    var jugadorEnEspera = sala.JugadoresEspera.FirstOrDefault(x => x.ConnectionId == connectionId);
 
                     if (jugadorEnEspera != null)
                     {
@@ -123,64 +158,90 @@ namespace PictionarySignalR.Services
                 }
 
                 var estabaEnPartida = sala.Estado == EstadoPartida.EnPartida;
+                var estabaEnSalaFinal = sala.Estado == EstadoPartida.Finalizada;
                 var eraDibujante = jugador.EsDibujante;
                 var indiceJugador = sala.Jugadores.IndexOf(jugador);
 
-                // Se ajusta el indice porque la rotacion de turnos depende de la posicion en la lista.
-                sala.Jugadores.Remove(jugador);
-                AjustarIndiceDibujante(indiceJugador);
+                if (estabaEnPartida || estabaEnSalaFinal)
+                {
+                    jugador.Conectado = false;
+                    jugador.ConnectionId = null;
 
-                sala.ReportesDibujante.Remove(idJugador);
-
-                mensaje = new MensajeChat
-                {
-                    EsSistema = true,
-                    Texto = $"{jugador.Nombre} salio de la sala."
-                };
-                if (sala.Jugadores.Count < 2 && sala.Estado == EstadoPartida.EnPartida)
-                {
-                    debeVolverAEspera = true;
-                    ReiniciarSalaParaEspera();
-                    jugadoresParaAgregarGrupo = PasarJugadoresEsperaASala();
-                }
-                else if (sala.Estado == EstadoPartida.Esperando && sala.Jugadores.Count < 2)
-                {
-                    DetenerTimerEspera();
-                    debeEnviarSala = true;
-                }
-                else if (sala.Estado == EstadoPartida.Esperando)
-                {
-                    debeEnviarSala = true;
-                }
-                else if (estabaEnPartida && eraDibujante)
-                {
-                    DetenerTimerRonda();
-
-                    if (sala.Jugadores.All(x => x.YaDibujo))
+                    if (!string.IsNullOrWhiteSpace(jugador.IdJugador))
                     {
-                        debeFinalizarPartida = true;
+                        sala.ReportesDibujante.Remove(jugador.IdJugador);
                     }
-                    else
+
+                    mensaje = new MensajeChat
                     {
-                        PrepararRonda();
+                        EsSistema = true,
+                        Texto = $"{jugador.Nombre} se desconecto. Puede volver con el mismo navegador."
+                    };
+
+                    debeEnviarRonda = estabaEnPartida;
+                }
+                else
+                {
+                    // Se ajusta el indice porque la rotacion de turnos depende de la posicion en la lista.
+                    sala.Jugadores.Remove(jugador);
+                    AjustarIndiceDibujante(indiceJugador);
+
+                    if (!string.IsNullOrWhiteSpace(jugador.IdJugador))
+                    {
+                        sala.ReportesDibujante.Remove(jugador.IdJugador);
+                    }
+
+                    mensaje = new MensajeChat
+                    {
+                        EsSistema = true,
+                        Texto = $"{jugador.Nombre} salio de la sala."
+                    };
+                    if (sala.Jugadores.Count < 2 && sala.Estado == EstadoPartida.EnPartida)
+                    {
+                        debeVolverAEspera = true;
+                        ReiniciarSalaParaEspera();
+                        jugadoresParaAgregarGrupo = PasarJugadoresEsperaASala();
+                    }
+                    else if (sala.Estado == EstadoPartida.Esperando && sala.Jugadores.Count < 2)
+                    {
+                        DetenerTimerEspera();
+                        debeEnviarSala = true;
+                    }
+                    else if (sala.Estado == EstadoPartida.Esperando)
+                    {
+                        debeEnviarSala = true;
+                    }
+                    else if (estabaEnPartida && eraDibujante)
+                    {
+                        DetenerTimerRonda();
+
+                        if (sala.Jugadores.All(x => x.YaDibujo))
+                        {
+                            debeFinalizarPartida = true;
+                        }
+                        else
+                        {
+                            PrepararRonda();
+                            debeEnviarRonda = true;
+                            debeLimpiarPizarra = true;
+                        }
+                    }
+                    else if (estabaEnPartida &&
+                        !sala.PalabraPendiente &&
+                        sala.Jugadores.Where(x => !x.EsDibujante).All(x => x.YaAdivino))
+                    {
+                        debeTerminarRonda = true;
+                    }
+                    else if (estabaEnPartida)
+                    {
                         debeEnviarRonda = true;
-                        debeLimpiarPizarra = true;
                     }
-                }
-                else if (estabaEnPartida &&
-                    !sala.PalabraPendiente &&
-                    sala.Jugadores.Where(x => !x.EsDibujante).All(x => x.YaAdivino))
-                {
-                    debeTerminarRonda = true;
-                }
-                else if (estabaEnPartida)
-                {
-                    debeEnviarRonda = true;
                 }
             }
 
             if (mensaje != null)
             {
+                RegistrarMensajeChat(mensaje);
                 await hubContext.Clients.Group(GrupoSala).SendAsync("MensajeRecibido", mensaje);
             }
 
@@ -216,13 +277,13 @@ namespace PictionarySignalR.Services
             }
         }
 
-        public async Task MarcarListoAsync(string idJugador)
+        public async Task MarcarListoAsync(string connectionId)
         {
             bool iniciarPartida;
 
             lock (sala.Jugadores)
             {
-                var jugador = BuscarJugador(idJugador);
+                var jugador = BuscarJugadorPorConexion(connectionId);
 
                 if (jugador == null || sala.Estado != EstadoPartida.Esperando)
                 {
@@ -243,25 +304,25 @@ namespace PictionarySignalR.Services
             }
         }
 
-        public bool PuedeDibujar(string idJugador)
+        public bool PuedeDibujar(string connectionId)
         {
             lock (sala.Jugadores)
             {
-                var jugador = BuscarJugador(idJugador);
+                var jugador = BuscarJugadorPorConexion(connectionId);
                 return jugador?.EsDibujante == true &&
                        sala.Estado == EstadoPartida.EnPartida &&
                        sala.PalabraPendiente == false;
             }
         }
 
-        public async Task DefinirPalabraAsync(string idJugador, string palabra)
+        public async Task DefinirPalabraAsync(string connectionId, string palabra)
         {
             MensajeChat? mensaje = null;
             bool palabraAceptada = false;
 
             lock (sala.Jugadores)
             {
-                var jugador = BuscarJugador(idJugador);
+                var jugador = BuscarJugadorPorConexion(connectionId);
 
                 if (jugador?.EsDibujante == true &&
                     sala.Estado == EstadoPartida.EnPartida &&
@@ -284,12 +345,13 @@ namespace PictionarySignalR.Services
 
             if (palabraAceptada)
             {
+                RegistrarMensajeChat(mensaje);
                 await hubContext.Clients.Group(GrupoSala).SendAsync("MensajeRecibido", mensaje);
                 await EnviarEstadoRondaAsync();
             }
         }
 
-        public async Task ProcesarMensajeAsync(string idJugador, string texto)
+        public async Task ProcesarMensajeAsync(string connectionId, string texto)
         {
             MensajeChat? mensaje = null;
             bool actualizarRonda = false;
@@ -297,7 +359,7 @@ namespace PictionarySignalR.Services
 
             lock (sala.Jugadores)
             {
-                var jugador = BuscarJugador(idJugador);
+                var jugador = BuscarJugadorPorConexion(connectionId);
 
                 if (jugador == null ||
                     sala.Estado != EstadoPartida.EnPartida ||
@@ -329,7 +391,7 @@ namespace PictionarySignalR.Services
                         Texto = $"{jugador.Nombre} ya habia acertado esta ronda."
                     };
                 }
-                else if (texto.ToUpper() == sala.Palabra.ToUpper())
+                else if (NormalizarRespuesta(texto) == NormalizarRespuesta(sala.Palabra))
                 {
                     jugador.YaAdivino = true;
                     jugador.Puntos += sala.SegundosRonda;
@@ -356,6 +418,7 @@ namespace PictionarySignalR.Services
 
             }
 
+            RegistrarMensajeChat(mensaje);
             await hubContext.Clients.Group(GrupoSala).SendAsync("MensajeRecibido", mensaje);
 
             if (actualizarRonda)
@@ -369,7 +432,7 @@ namespace PictionarySignalR.Services
             }
         }
 
-        public async Task ReportarDibujanteAsync(string idJugador)
+        public async Task ReportarDibujanteAsync(string connectionId)
         {
             MensajeChat? mensaje = null;
             bool expulsarDibujante = false;
@@ -380,11 +443,13 @@ namespace PictionarySignalR.Services
 
             lock (sala.Jugadores)
             {
-                var jugador = BuscarJugador(idJugador);
+                var jugador = BuscarJugadorPorConexion(connectionId);
                 var dibujante = sala.Jugadores.FirstOrDefault(x => x.EsDibujante);
+                var idJugador = jugador?.IdJugador ?? "";
 
                 if (jugador == null ||
                     dibujante == null ||
+                    string.IsNullOrWhiteSpace(idJugador) ||
                     jugador.EsDibujante ||
                     sala.Estado != EstadoPartida.EnPartida ||
                     sala.PalabraPendiente)
@@ -453,6 +518,7 @@ namespace PictionarySignalR.Services
 
             if (mensaje != null)
             {
+                RegistrarMensajeChat(mensaje);
                 await hubContext.Clients.Group(GrupoSala).SendAsync("MensajeRecibido", mensaje);
             }
 
@@ -492,6 +558,49 @@ namespace PictionarySignalR.Services
             }
         }
 
+        public ResultadoFinalDto ObtenerResultadoFinal()
+        {
+            lock (sala.Jugadores)
+            {
+                return CrearResultadoFinal();
+            }
+        }
+
+        public List<MensajeChat> ObtenerHistorialChat()
+        {
+            lock (sala.Jugadores)
+            {
+                return sala.MensajesChat.ToList();
+            }
+        }
+
+        public List<Trazo> ObtenerHistorialPizarra()
+        {
+            lock (sala.Jugadores)
+            {
+                return sala.TrazosPizarra.ToList();
+            }
+        }
+
+        public void RegistrarTrazo(Trazo trazo)
+        {
+            lock (sala.Jugadores)
+            {
+                if (sala.Estado == EstadoPartida.EnPartida && !sala.PalabraPendiente)
+                {
+                    sala.TrazosPizarra.Add(trazo);
+                }
+            }
+        }
+
+        public void LimpiarTrazosPizarra()
+        {
+            lock (sala.Jugadores)
+            {
+                sala.TrazosPizarra.Clear();
+            }
+        }
+
         private async Task IniciarPartidaAsync()
         {
             lock (sala.Jugadores)
@@ -502,6 +611,8 @@ namespace PictionarySignalR.Services
                 sala.Estado = EstadoPartida.EnPartida;
                 sala.IndiceDibujante = 0;
                 cerrandoRonda = false;
+                sala.MensajesChat.Clear();
+                sala.TrazosPizarra.Clear();
 
                 foreach (var jugador in sala.Jugadores)
                 {
@@ -559,6 +670,7 @@ namespace PictionarySignalR.Services
                 finalizarPartida = sala.Jugadores.All(x => x.YaDibujo);
             }
 
+            RegistrarMensajeChat(mensaje);
             await hubContext.Clients.Group(GrupoSala).SendAsync("MensajeRecibido", mensaje);
             await EnviarEstadoRondaAsync();
 
@@ -710,6 +822,7 @@ namespace PictionarySignalR.Services
             sala.Palabra = null;
             sala.PalabraPendiente = true;
             sala.ReportesDibujante.Clear();
+            sala.TrazosPizarra.Clear();
             sala.SegundosRonda = DuracionRonda;
         }
 
@@ -781,19 +894,24 @@ namespace PictionarySignalR.Services
             {
                 Nombre = x.Nombre ?? "",
                 Puntos = x.Puntos,
-                Listo = x.Listo
+                Listo = x.Listo,
+                Conectado = x.Conectado
             }).ToList();
         }
 
-        private Jugador? BuscarJugador(string idJugador)
+        private Jugador? BuscarJugadorPorConexion(string connectionId)
         {
-            return sala.Jugadores.FirstOrDefault(x => x.IdJugador == idJugador);
+            return sala.Jugadores.FirstOrDefault(x => x.ConnectionId == connectionId);
         }
 
-        private bool NombreEnUso(string nombre)
+        private bool NombreEnUso(string nombre, string idJugador)
         {
-            return sala.Jugadores.Any(x => x.Nombre?.Equals(nombre, StringComparison.OrdinalIgnoreCase) == true) ||
-                   sala.JugadoresEspera.Any(x => x.Nombre?.Equals(nombre, StringComparison.OrdinalIgnoreCase) == true);
+            return sala.Jugadores.Any(x =>
+                       x.IdJugador != idJugador &&
+                       x.Nombre?.Equals(nombre, StringComparison.OrdinalIgnoreCase) == true) ||
+                   sala.JugadoresEspera.Any(x =>
+                       x.IdJugador != idJugador &&
+                       x.Nombre?.Equals(nombre, StringComparison.OrdinalIgnoreCase) == true);
         }
 
         private void IniciarTimerEspera()
@@ -841,6 +959,7 @@ namespace PictionarySignalR.Services
             foreach (var jugador in sala.Jugadores)
             {
                 jugador.Listo = false;
+                jugador.Conectado = !string.IsNullOrWhiteSpace(jugador.ConnectionId);
                 jugador.EsDibujante = false;
                 jugador.YaAdivino = false;
                 jugador.YaDibujo = false;
@@ -850,13 +969,14 @@ namespace PictionarySignalR.Services
         private List<string> PasarJugadoresEsperaASala()
         {
             var ids = sala.JugadoresEspera
-                .Where(x => x.IdJugador != null)
-                .Select(x => x.IdJugador!)
+                .Where(x => x.ConnectionId != null)
+                .Select(x => x.ConnectionId!)
                 .ToList();
 
             foreach (var jugador in sala.JugadoresEspera)
             {
                 jugador.Listo = false;
+                jugador.Conectado = !string.IsNullOrWhiteSpace(jugador.ConnectionId);
                 jugador.EsDibujante = false;
                 jugador.YaAdivino = false;
                 jugador.YaDibujo = false;
@@ -884,6 +1004,19 @@ namespace PictionarySignalR.Services
         private async Task EnviarEstadoRondaAsync()
         {
             await hubContext.Clients.Group(GrupoSala).SendAsync("RondaActualizada", ObtenerEstadoRonda());
+        }
+
+        private void RegistrarMensajeChat(MensajeChat? mensaje)
+        {
+            if (mensaje == null)
+            {
+                return;
+            }
+
+            lock (sala.Jugadores)
+            {
+                sala.MensajesChat.Add(mensaje);
+            }
         }
 
         private int CalcularReportesNecesarios()
@@ -921,6 +1054,28 @@ namespace PictionarySignalR.Services
         {
             return string.Join(" ", palabra.Select(letra =>
                 char.IsLetterOrDigit(letra) ? '_' : letra));
+        }
+
+        private static string NormalizarRespuesta(string? texto)
+        {
+            if (string.IsNullOrWhiteSpace(texto))
+            {
+                return "";
+            }
+
+            var sinEspaciosExtra = string.Join(" ", texto.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+            var descompuesto = sinEspaciosExtra.Normalize(NormalizationForm.FormD);
+            var normalizado = new StringBuilder();
+
+            foreach (var caracter in descompuesto)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(caracter) != UnicodeCategory.NonSpacingMark)
+                {
+                    normalizado.Append(char.ToUpperInvariant(caracter));
+                }
+            }
+
+            return normalizado.ToString().Normalize(NormalizationForm.FormC);
         }
 
     }
